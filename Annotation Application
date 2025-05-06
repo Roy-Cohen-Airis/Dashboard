@@ -1057,9 +1057,10 @@ def check_dur(link):
             try:
                 info_dict = ydl.extract_info(valid_url, download=False)
                 og_dur = info_dict.get('duration', 0)
-                video_og_dur = str(datetime.timedelta(seconds=og_dur))
+                video_og_dur = str(timedelta(seconds=og_dur))
                 video_name = info_dict.get('title', 'No title found')
                 video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
+                print(video_size, video_name)
                 if video_size:
                     vid_size = f"{video_size / (1024 * 1024):.2f} MB"
                     print(f"Video size: {video_size / (1024 * 1024):.2f} MB")

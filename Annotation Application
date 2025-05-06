@@ -194,7 +194,7 @@ check_btn_ed = {
     "textAlign": "center",
     "boxShadow": "0 8px 16px rgba(0, 0, 0, 0.2)",
     "position": "relative",
-    "top": "600px",
+    "top": "647px",
     "left": "-50px",
     "borderRadius": "50px",
 }
@@ -1977,7 +1977,34 @@ def edit_tab_layout():
                         "justifyContent": "center",
                         "marginBottom": "-50px",
                     }
-                ),       
+                ),
+                
+                html.Div([
+                    html.Br(),
+                    html.Div([
+                        html.H2("To Full Dashboard", style={"textAlign": "center"}),  # added centered H2
+                        html.A(
+                            html.Img(
+                                src="/assets/Full_Dashboard.png",
+                                alt="To The Full Dashboard",  # added alt
+                                style={
+                                    'width': '500px',
+                                    'border': '1px solid black'
+                                }
+                            ),
+                            href='http://data-team-dashboard:8000/',
+                            target='_blank'  # opens link in new tab
+                        )
+                    ])
+                ],
+                style={
+                    "display": "flex",
+                    "justifyContent": "right",
+                    "gap": "70px",
+                    "marginTop": "120px"
+                })
+
+  
                     ],width=4), 
                     html.Br(),
                     html.Div(

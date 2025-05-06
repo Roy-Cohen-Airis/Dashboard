@@ -151,6 +151,23 @@ button_style4 = {
     "top": "350px"
 }
 
+button_style5 = {
+    "borderRadius": "35px",
+    "width": "200px",
+    "padding": "9px 15px",
+    "position": "absolute",
+
+    "background": "linear-gradient(to right, #FFFF00,#FFD700)",
+    "border": "2px solid black",
+    "fontWeight": "600",
+    "fontSize": "20px",
+    "font-weight": 'bold',
+    "color": "black",
+    "textAlign": "center",
+    "boxShadow": "0 8px 16px rgba(0, 0, 0, 0.2)",
+    "transition": "all 0.3s ease-in-out"
+}
+
 rec_num = {
     "fontWeight": "bold",
     "fontSize": "18px",
@@ -934,8 +951,18 @@ def insert_tab_layout():
                                 },
                             ),
                     html.Br(),
+                    dbc.Button(
+                        "Export as CSV",
+                        id='export',
+                        color='success',
+                        n_clicks=0,
+                        style=button_style5
+                    ),
+                    dcc.Download(id="download_component"),
+                    html.Br(),
                     html.Br(),    
-                    html.Br(),    
+                    html.Br(), 
+                    html.Br(),       
                         html.H4("Watch It Here:",style=heading_style2),
                     html.Br(),                 
                 html.Div(
@@ -1060,7 +1087,7 @@ def check_dur(link):
                 video_og_dur = str(timedelta(seconds=og_dur))
                 video_name = info_dict.get('title', 'No title found')
                 video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
-                print(video_size, video_name)
+                
                 if video_size:
                     vid_size = f"{video_size / (1024 * 1024):.2f} MB"
                     print(f"Video size: {video_size / (1024 * 1024):.2f} MB")
@@ -1077,6 +1104,24 @@ def check_dur(link):
         # Handle any other unexpected errors
         return ("", "Unexpected error occurred. Please try again.", "Title Not Found!", False,"")
     
+    
+@app.callback(
+    Output("download_component","data"),
+    Input("export","n_clicks"),
+    State('links_table_store','data')
+)
+def export_links (export,links):
+    links_collection = pd.DataFrame(links)
+    ctx = dash.callback_context
+    triggered_id = ctx.triggered[0]['prop_id'] if ctx.triggered else None
+    
+    if triggered_id == "export.n_clicks":
+        if links:
+            return dcc.send_data_frame(links_collection.to_csv, filename="links_collections.csv")
+        else:
+            return None
+        
+        
 @app.callback (
     [
         Output('confirmation-modal','is_open'),
@@ -1345,7 +1390,7 @@ def validations(insertbtn, city_name,city_options,country_name, linkurl, coords_
             if end_time_check > og_dur_check:
                 raise ValueError ("Annotation time exceeding original video duration!")
 
-            time_d=(datetime.datetime.now())
+            time_d=datetime.now()
             formatted_datetime = time_d.strftime("%Y-%m-%d %H:%M:%S")    
            
             cut_id = generate_unique_random_id(city_name,df_all,valid_url)

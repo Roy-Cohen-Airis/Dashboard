@@ -1729,28 +1729,6 @@ def edit_tab_layout():
             dbc.Container(
                 style=container_style_2,
                 children=[
-                dcc.Store(id='default-values_edit', data={
-                    'link_url_edit': "",
-                    "coordinates_input_edit": "",
-                    'sources_edit': "",
-                    'input-hours_edit': 0,
-                    'input-minutes_edit': 0,
-                    'input-seconds_edit': 0,
-                    'input-hours_end_edit': 0,
-                    'input-minutes_end_edit': 0,
-                    'input-seconds_end_edit': 0,
-                    'tod_edit': '',
-                    'weather_edit': "",
-                    'vq_edit': "",
-                    'tilt_edit': '',
-                    'distance_edit': '',
-                    'occlusion_list_edit': '',
-                    'terrain_edit': "",
-                    'logos_list_edit': '',
-                    'distortions_list_edit': '',
-                    'analysts_edit': 'Select Analyst',
-                    'comments_edit':""
-                }),
                 dcc.Store(id="stored-videoid", data=None),
                 dcc.Store(id='latest_df',data=None),
                 dcc.Store(id='latest_cut',data=None),
@@ -2179,6 +2157,8 @@ import pandas as pd
     Input("timeframe_slider", "value"),
     Input("filters_list", "value"),
     Input("update_ids",   "n_clicks"),
+
+    
 )
 def load_sub_filter(slider_val, selected_filter,update):
     ctx = dash.callback_context
@@ -2236,7 +2216,7 @@ def load_sub_filter(slider_val, selected_filter,update):
     else:
         opts = []
 
-    if triggered_id == "update_ids.n_clicks" :
+    if triggered_id == "update_ids.n_clicks":
         return opts, "" , df_city_edit.to_dict("records"),cuts_db.to_dict("records") 
     else: 
         return opts,dash.no_update, df_city_edit.to_dict("records"),cuts_db.to_dict("records")
@@ -2310,6 +2290,22 @@ def load_versions(cut,df,selected_vid):
         return version_options,ver_val
     return [],""
 
+def video_info_extraction(link):
+            ydl_opts = {}
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+
+                info_dict = ydl.extract_info(link, download=False)
+                video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
+                og_dur = info_dict.get('duration', 0)
+                if video_size > 0 and og_dur > 0:
+                    vid_size = f"{video_size / (1024 * 1024):.2f} MB"
+                    video_og_dur = str(timedelta(seconds=og_dur))
+                    return vid_size,video_og_dur
+                else:
+                    vid_size = 0
+                    video_og_dur = 0
+                return vid_size,video_og_dur
+            
 @app.callback(
     Output('og_size_ed','value'),
     Output('og_dur_ed','value'),
@@ -2319,6 +2315,7 @@ def load_versions(cut,df,selected_vid):
     State('latest_df','data'),
     State("latest_cut",   "data")
 )
+
 
 
 def cal_size (link,cut,ver,latest_df,latest_cut):
@@ -2338,30 +2335,39 @@ def cal_size (link,cut,ver,latest_df,latest_cut):
                 info_dict = ydl.extract_info(link, download=False)
                 video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
                 og_dur = info_dict.get('duration', 0)
-                print(video_size,og_dur)
                 if video_size > 0 and og_dur > 0:
                     vid_size = f"{video_size / (1024 * 1024):.2f} MB"
                     video_og_dur = str(timedelta(seconds=og_dur))
 
-                    print(vid_size,video_og_dur)
                 else:
                     vid_size = 0
                     video_og_dur = 0
-                    print(vid_size,video_og_dur)
                 return vid_size,video_og_dur
         else:
             match_dur = cuts[cuts['Cut_ID']==cut_vers]['Video Duration_OG'].values[0]
             match_size = cuts[cuts['Cut_ID']==cut_vers]['Video_Size_OG'].values[0]
             if match_dur and not match_size:
-                return None, match_dur
+                vid_size,video_og_dur = video_info_extraction(match_link)
+                if vid_size:
+                    return vid_size,match_dur
+                else:
+                    return None, match_dur  
             elif not match_dur and match_size:
-                return match_size,None
+                vid_size,video_og_dur = video_info_extraction(match_link)
+                if video_og_dur:
+                    return match_size,video_og_dur
+                else:
+                    return match_size,None
             elif not match_dur and not match_size:
-                return None, None
+                vid_size,video_og_dur = video_info_extraction(match_link)
+                if vid_size and video_og_dur :
+                    return vid_size,video_og_dur
+                else:
+                    return None, None
             else:
                 return match_size,match_dur
     else:
-        return None, None
+        return "", ""
     
 @app.callback ([
         Output('confirmation-modal_edit','is_open'),
@@ -2428,7 +2434,6 @@ def cal_size (link,cut,ver,latest_df,latest_cut):
     ],
 [    
  State('output-duration_edit','value'), 
- State('default-values_edit','data'),
  State("stored-videoid", "data"),
  State('latest_df','data'),
  State("confirmation-update", "is_open"),
@@ -2448,7 +2453,7 @@ State("latest_cut",   "data")
 )
 def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, coord_edit, tod_edit, weather_edit, vq_edit, tilt_edit, distance_edit,
               occlusion_edit, terrain_edit, logos_edit, distortions_edit, analyst_edit, comments_edit, update,confirm_yes,confirm_no,
-              delete,delete_btn, check_btn,duration_edit, defaults_edit,stored_videoid,latest_df,update_confirmation,delete_password,checkbox_ed,
+              delete,delete_btn, check_btn,duration_edit,stored_videoid,latest_df,update_confirmation,delete_password,checkbox_ed,
               hours_st_edit, minute_st_edit, sec_st_edit,hours_end_edit, min_end_edit, sec_end_edit,sized,latest_cut):
     ctx = dash.callback_context
     triggered_id = ctx.triggered[0]['prop_id'] if ctx.triggered else None
@@ -2588,7 +2593,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
             viewport = {'center': [lat, lon], 'zoom': 14}
             
             return (
-                False, dash.no_update, video_ver,
+                False, dash.no_update, city_name_edit,
                 row['Source'].values[0],
                 row['Links'].values[0],
                 row['Coordinates'].values[0],
@@ -2608,7 +2613,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 row['Links'].values[0],False,False,value_check,dash.no_update,dash.no_update,viewport,[marker]
             )
       
-        return (False, dash.no_update,"Select a video id", "","","",0,0,0,0,0,0,"","","","","","","","","","","","",
+        return (False, dash.no_update,"", "","","",0,0,0,0,0,0,"","","","","","","","","","","","",
                 False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
     
     elif triggered_id == 'update.n_clicks':   
@@ -2831,8 +2836,8 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 ])
             ])
             
-            checkbox_ed =[]  
-            return (True,result_window_update,"Select a video id", "","","",0,0,0,0,0,0,"","","",
+            checkbox_ed =[] 
+            return (True,result_window_update,"", "","","",0,0,0,0,0,0,"","","",
                     "","","","","","","","","",False,False,checkbox_ed,dash.no_update,dash.no_update,map_center_city,[])      
         except ValueError as e:
             # If any validation fails, catch and show the error message
@@ -2903,9 +2908,8 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                     *([dash.no_update] * 21),  # no other fields change
                     False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update                     # disable Confirm button
                 )
-            
             result_removal = f"{video_ver} has successfully removed !"
-            return (True,result_removal,"Select a video id", "","","",0,0,0,0,0,0,"","","","","","","","","","","","",
+            return (True,result_removal,"", "","","",0,0,0,0,0,0,"","","","","","","","","","","","",
         False,False,dash.no_update,dash.no_update,dash.no_update,map_center_city,[])        
         else:
             result_removal = "Incorrect Password, please try again!"

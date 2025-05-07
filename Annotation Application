@@ -2292,20 +2292,23 @@ def load_versions(cut,df,selected_vid):
 
 def video_info_extraction(link):
             ydl_opts = {}
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-
-                info_dict = ydl.extract_info(link, download=False)
-                video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
-                og_dur = info_dict.get('duration', 0)
-                if video_size > 0 and og_dur > 0:
-                    vid_size = f"{video_size / (1024 * 1024):.2f} MB"
-                    video_og_dur = str(timedelta(seconds=og_dur))
-                    return vid_size,video_og_dur
-                else:
-                    vid_size = 0
-                    video_og_dur = 0
-                return vid_size,video_og_dur
             
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                try:
+                    info_dict = ydl.extract_info(link, download=False)
+                    video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
+                    og_dur = info_dict.get('duration', 0)
+                    if video_size  and og_dur:
+                        vid_size = f"{video_size / (1024 * 1024):.2f} MB"
+                        video_og_dur = str(timedelta(seconds=og_dur))
+                        return vid_size,video_og_dur
+                    else:
+                        vid_size = 0
+                        video_og_dur = 0
+                    return vid_size,video_og_dur
+                except (yt_dlp.utils.DownloadError, yt_dlp.utils.ExtractorError, Exception) as e:
+                    return "", ""
+                    
 @app.callback(
     Output('og_size_ed','value'),
     Output('og_dur_ed','value'),
@@ -2329,20 +2332,8 @@ def cal_size (link,cut,ver,latest_df,latest_cut):
         cut_vers = f"{cut}_{ver}"
         match_link = df[df['Cut_ID']==cut_vers]['Links'].values[0]
         if not match_link:
-            ydl_opts = {}
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-
-                info_dict = ydl.extract_info(link, download=False)
-                video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
-                og_dur = info_dict.get('duration', 0)
-                if video_size > 0 and og_dur > 0:
-                    vid_size = f"{video_size / (1024 * 1024):.2f} MB"
-                    video_og_dur = str(timedelta(seconds=og_dur))
-
-                else:
-                    vid_size = 0
-                    video_og_dur = 0
-                return vid_size,video_og_dur
+            vid_size,video_og_dur = video_info_extraction(match_link)
+            return vid_size,video_og_dur
         else:
             match_dur = cuts[cuts['Cut_ID']==cut_vers]['Video Duration_OG'].values[0]
             match_size = cuts[cuts['Cut_ID']==cut_vers]['Video_Size_OG'].values[0]

@@ -2502,7 +2502,8 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 error_input_cor = html.Div(f"Incorrect Coordinates Format", style={"color": "red"})
                 return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,error_input_cor,dash.no_update,dash.no_update)
         else:
-            center= cities[cities['City Name'] == city_name_edit]['CityCenter'].iloc[0]
+            city_n = df_city_edit[df_city_edit['Cut_ID']==video_ver]['City'].values[0]
+            center= cities[cities['City Name'] == city_n]['CityCenter'].iloc[0]
             lat, lon =map(float, center.split(",")) 
             map_center_city = {'center': [lat, lon], 'zoom': 10}      
             return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,"",map_center_city,[])

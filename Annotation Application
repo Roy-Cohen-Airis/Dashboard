@@ -2120,17 +2120,7 @@ def edit_tab_layout():
         ]
     )
 
-def video_options_per_time (df,timing):
-    today = pd.Timestamp.today().normalize()
-    df['TimeStamp'] = pd.to_datetime(df['TimeStamp'], errors='coerce')
-    time_delta = today - pd.Timedelta(days=timing)
-    mask = df['TimeStamp'].between(time_delta, today)
-    filtered_df = df.loc[mask].copy()
-    filtered_df['base'] = filtered_df['Cut_ID'].str.extract(r'^(.*)_v\d+$')[0]
-    voptions = filtered_df['base'].unique()
-    
-    return voptions
-global time_constants
+
 time_constants = ['Up to a week ago', 'Up to 2 weeks ago','Up to a month ago','Up to 3 months ago','Up to half a year ago', 'Up to a year ago', 'All Time'] 
 
 
@@ -2183,10 +2173,24 @@ import pandas as pd
 
 @app.callback(
     Output("cities_edit", "options"),
+    Output("cities_edit", "value"),
+    Output("latest_df",   "data"),
+    Output("latest_cut",   "data"),
     Input("timeframe_slider", "value"),
-    Input("filters_list", "value")
+    Input("filters_list", "value"),
+    Input("update_ids",   "n_clicks"),
 )
-def load_sub_filter(slider_val, selected_filter):
+def load_sub_filter(slider_val, selected_filter,update):
+    ctx = dash.callback_context
+    triggered_id = ctx.triggered[0]['prop_id'] if ctx.triggered else None
+        
+    sheetid_edit = '1aIEe5GLAY-MVfGPj8BVjaiZoJ1z1lWwfXUTBswT576U'
+    sheetrange_edit = 'All_Cities!A1:Y500000'
+    df_city_edit = city_load_data(sheetid_edit, sheetrange_edit)
+    cut_sheet_id = '1R-qzDHwVB6f27sGYQvpQTZIoDQbzla59j5jM0rfIm3M'
+    cut_range = 'Cuts_DB!A1:Q500000'
+    cuts_db = city_load_data(cut_sheet_id,cut_range)
+    
     # Assume slider_val is a list/tuple like [start_days_ago, end_days_ago]
     low_idx, high_idx = slider_val
     index_to_days = {
@@ -2206,6 +2210,7 @@ def load_sub_filter(slider_val, selected_filter):
     start_cutoff = now - timedelta(days=index_to_days[high_idx])
     end_cutoff = now - timedelta(days=index_to_days[low_idx])
 
+    df_city_edit['TimeStamp'] = pd.to_datetime(df_city_edit['TimeStamp'], utc=False, errors='coerce')        
 
     # Ensure timestamps are tz-aware
     if df_city_edit['TimeStamp'].dt.tz is None:
@@ -2231,36 +2236,34 @@ def load_sub_filter(slider_val, selected_filter):
     else:
         opts = []
 
-    return opts
+    if triggered_id == "update_ids.n_clicks" :
+        return opts, "" , df_city_edit.to_dict("records"),cuts_db.to_dict("records") 
+    else: 
+        return opts,dash.no_update, df_city_edit.to_dict("records"),cuts_db.to_dict("records")
+
+
 
 
 @app.callback(
     Output("videoid_edit","options"),
     Output("videoid_edit","value"),
-    Output("latest_df",   "data"),
-    Output("latest_cut",   "data"),
     Output("rec_num","value"),
 
     Input("cities_edit",  "value"),
     Input("update_ids",   "n_clicks"),
+    State("latest_df",   "data"),
 
          # <-- NEW
     prevent_initial_call=True
 )            
 
-def loading_videoid_options(selected_input,update_ids):
-    sheetid_edit = '1aIEe5GLAY-MVfGPj8BVjaiZoJ1z1lWwfXUTBswT576U'
-    sheetrange_edit = 'All_Cities!A1:Y500000'
-    df_city_edit = city_load_data(sheetid_edit, sheetrange_edit)
-    cut_sheet_id = '1R-qzDHwVB6f27sGYQvpQTZIoDQbzla59j5jM0rfIm3M'
-    cut_range = 'Cuts_DB!A1:Q500000'
-    cuts_db = city_load_data(cut_sheet_id,cut_range)
+def loading_videoid_options(selected_input,update_ids,latest_df):
+
     rec_num=""
     
-    df_city_edit['TimeStamp'] = pd.to_datetime(df_city_edit['TimeStamp'])  # Convert to datetime
-    
+    df = pd.DataFrame(latest_df)
 
-    q2_df = df_city_edit.copy()
+    q2_df = df.copy()
     q2_df['base'] = q2_df['Cut_ID'].str.extract(r'^(.*)_v\d+$')[0]
 
     
@@ -2277,32 +2280,35 @@ def loading_videoid_options(selected_input,update_ids):
     else:
         video_id_options = []
 
-    return (video_id_options,"Select a cut id",q2_df.to_dict('records'),cuts_db.to_dict('records'),rec_num)
+    return (video_id_options,"",rec_num)
 
 @app.callback(
     Output("cut_version","options"),
     Output("cut_version","value"),
 
     Input("videoid_edit","value"),
+
     State("latest_df",   "data"),
+    State("cities_edit",  "value"),
     
 )
 
 
-def load_versions(cut,df):
+def load_versions(cut,df,selected_vid):
+    if selected_vid:
+        v_df=pd.DataFrame(df)
+        if cut:
+            cuts_df = v_df[v_df['Cut_ID'].str.contains(cut)].copy()
+            cuts_df['version'] = cuts_df['Cut_ID'].str.extract(r'_(v\d+)$')[0]
+            version_options = cuts_df['version'].unique()
 
-    v_df=pd.DataFrame(df)
-    if cut:
-        cuts_df = v_df[v_df['Cut_ID'].str.contains(cut)].copy()
-        cuts_df['version'] = cuts_df['Cut_ID'].str.extract(r'_(v\d+)$')[0]
-        version_options = cuts_df['version'].unique()
+            ver_val = ""
+        else:
+            version_options =[]
+            ver_val = ""
 
-        ver_val = ""
-    else:
-        version_options =[]
-        ver_val = ""
-
-    return version_options,ver_val
+        return version_options,ver_val
+    return [],""
 
 @app.callback(
     Output('og_size_ed','value'),
@@ -2768,8 +2774,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 append_row_to_gsheet(cut_sheet,cut_ranges,cuts_row_data)
                 
                 cut_sheet_ids = '1R-qzDHwVB6f27sGYQvpQTZIoDQbzla59j5jM0rfIm3M'
-                analyst = df_city_edit[df_city_edit['Cut_ID']==video_ver]['Analyst'].values[0]
-                print(analyst)
+                analyst = analyst_edit
                 columns_values_dict={
                 "M": "TRUE",
                 "N": analyst
@@ -2869,14 +2874,19 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 "N": "og_user"
             }
                 cuts_df = cut_db_ed[cut_db_ed['Cut_ID'].str.contains(video_cut)]
-                prev_v = cuts_df[cuts_df["Ignored"] == 'TRUE']['Cut_ID'].iloc[-1]
-                if not prev_v:
-                    prev_v = video_ver
-                else:   
-                    prev_v = prev_v 
-                    idx_cut = cut_db_ed.index[cut_db_ed['Cut_ID']==prev_v][0]
+                multi_ver = cuts_df.shape[0]
+                if multi_ver > 1:
+                    prev_v = cuts_df[cuts_df["Ignored"] == 'TRUE']['Cut_ID'].iloc[-1]
+                    
+                    if not prev_v:
+                        prev_v = video_ver
+                    else:   
+                        prev_v = prev_v 
+                        idx_cut = cut_db_ed.index[cut_db_ed['Cut_ID']==prev_v][0]
 
-                    update_cell(cut_sheet, idx_cut + 2, columns_values_dict) 
+                        update_cell(cut_sheet, idx_cut + 2, columns_values_dict) 
+                else:
+                    pass
                 
             except Exception as e:
                 # Build a Dash error window if the Sheets update fails
@@ -2934,4 +2944,4 @@ app.layout = html.Div(
 )                 
              
 if __name__ == "__main__":
-    app.run(host='100.118.47.56', port=8051, debug=True)
+    app.run(host='100.118.47.56', port=8055, debug=True)

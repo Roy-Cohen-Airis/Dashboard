@@ -42,26 +42,6 @@ from google.oauth2 import service_account
 
 
 
-#ydl_opts = {
-#    'quiet': False,
-#    'outtmpl': 'C:/videos_download/%(title)s.%(ext)s',
-#    'ffmpeg_location': r"C:\Users\roy\OneDrive\Desktop\ASR JSONS\Geo_Analysis\ffmpeg-2025-04-14-git-3b2a9410ef-full_build\bin"
-#}
-# Then, download (with proper options)
-#with yt_dlp.YoutubeDL(ydl_opts) as ydl:
- #   ydl.download([valid_url])             
-# Get current time
-#now = time.time()
-# Apply timestamp to the merged output file
-# If you know the title in advance, do this directly. Otherwise use glob
-#import glob
-#for file in glob.glob("C:/videos_download/*.mp4"):
-#    filename_only = os.path.splitext(os.path.basename(file))[0]  # strip directory and .mp4
-#    if filename_only == video_name:
-#        os.utime(file, (now, now))  # update access and modified times
-#    else:
-#        continue
-
 SERVICE_ACCOUNT_FILE = r"C:\Users\roy\OneDrive\Desktop\ASR JSONS\Geo_Anlysis_Data\arabic-transcription-435113-c8120df00a35.json"
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
@@ -1085,6 +1065,7 @@ def check_dur(link):
                 info_dict = ydl.extract_info(valid_url, download=False)
                 og_dur = info_dict.get('duration', 0)
                 video_og_dur = str(timedelta(seconds=og_dur))
+                print(og_dur)
                 video_name = info_dict.get('title', 'No title found')
                 video_size = info_dict.get('filesize') or info_dict.get('filesize_approx')
                 
@@ -2158,8 +2139,11 @@ import pandas as pd
     Input("filters_list", "value"),
     Input("update_ids",   "n_clicks"),
 
-    
+    prevent_initial_call='initial_duplicate'
+
 )
+
+
 def load_sub_filter(slider_val, selected_filter,update):
     ctx = dash.callback_context
     triggered_id = ctx.triggered[0]['prop_id'] if ctx.triggered else None
@@ -2392,8 +2376,9 @@ def cal_size (link,cut,ver,latest_df,latest_cut):
         Output('coords_error_ed', 'children'),
         Output('map_edit', 'viewport'),
         Output('map-layer_ed', 'children'),
-        
-        
+        Output("cities_edit",  "value" ,allow_duplicate=True),
+        Output("latest_df",   "data",allow_duplicate=True),
+        Output("latest_cut",   "data",allow_duplicate=True)
    ],
     [ 
     Input("cities_edit",  "value"),
@@ -2438,9 +2423,11 @@ State('input-minutes_end_edit','value'),
 State('input-seconds_end_edit','value'),
 State('og_size_ed','value'),
 State("latest_cut",   "data")
+
     
 ],
-               
+ prevent_initial_call='initial_duplicate'
+              
 )
 def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, coord_edit, tod_edit, weather_edit, vq_edit, tilt_edit, distance_edit,
               occlusion_edit, terrain_edit, logos_edit, distortions_edit, analyst_edit, comments_edit, update,confirm_yes,confirm_no,
@@ -2463,7 +2450,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
         # Reset all fields to defaults
         return (
             False, dash.no_update, dash.no_update,"","","",0,0,0,0,0,0,"","","","","","","","","","","","",False,False,dash.no_update,dash.no_update,dash.no_update
-        ,dash.no_update,[])
+        ,dash.no_update,[],dash.no_update,dash.no_update,dash.no_update)
 
 
                         
@@ -2474,13 +2461,16 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 if valid_url_watch:
                     picked_video = valid_url_watch
                     
-                    return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (picked_video,False,False,dash.no_update,"",dash.no_update,dash.no_update,dash.no_update)
+                    return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (picked_video,False,False,dash.no_update,"",
+                    dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
             except ValueError as e:
                 # If any validation fails, catch and show the error message
                 error_input = html.Div(f"Incorrect Link Format", style={"color": "red"})   
-                return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,error_input,dash.no_update,dash.no_update,dash.no_update)
+                return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,
+                dash.no_update,error_input,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
         else:
-            return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + ("",False,False,dash.no_update,"",dash.no_update,dash.no_update,dash.no_update)
+            return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + ("",False,False,dash.no_update,"",dash.no_update,dash.no_update,
+            dash.no_update,dash.no_update,dash.no_update,dash.no_update)
 
     elif triggered_id == 'coordinates_input_edit.value':
         if coord_edit:
@@ -2492,17 +2482,20 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                                 children=[dl.Popup(coord_edit)],
                                 id='city-mark')
                 viewport = {'center': [lat, lon], 'zoom': 14}
-                return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,"",viewport,[marker])
+                return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,
+                dash.no_update,dash.no_update,"",viewport,[marker],dash.no_update,dash.no_update,dash.no_update)
             except ValueError as e:
                 # If any validation fails, catch and show the error message
                 error_input_cor = html.Div(f"Incorrect Coordinates Format", style={"color": "red"})
-                return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,error_input_cor,dash.no_update,dash.no_update)
+                return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,
+                dash.no_update,dash.no_update,error_input_cor,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
         else:
             city_n = df_city_edit[df_city_edit['Cut_ID']==video_ver]['City'].values[0]
             center= cities[cities['City Name'] == city_n]['CityCenter'].iloc[0]
             lat, lon =map(float, center.split(",")) 
             map_center_city = {'center': [lat, lon], 'zoom': 10}      
-            return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,"",map_center_city,[])
+            return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update
+            ,"",map_center_city,[],dash.no_update,dash.no_update,dash.no_update)
 
 
 
@@ -2550,7 +2543,8 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
             )
 
             viewport = {'center': [lat, lon], 'zoom': 14}
-            return (True, validation_msg,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,"",viewport,[marker])
+            return (True, validation_msg,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,
+            dash.no_update,"",viewport,[marker],dash.no_update,dash.no_update,dash.no_update)
 
 
         except ValueError as e:
@@ -2560,7 +2554,8 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                     html.P(str(e), style={"color": "black"})
                 ]
             )
-            return (True, validation_msg,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,"",viewport,[marker])
+            return (True, validation_msg,stored_videoid) + (dash.no_update,) * 20 + (dash.no_update,False,False,dash.no_update,dash.no_update,
+            "",viewport,[marker],dash.no_update,dash.no_update,dash.no_update)
 
 
     
@@ -2601,14 +2596,14 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 row['Distortions'].values[0],
                 row['Analyst'].values[0],
                 row['Comments'].values[0] if row['Comments'].values[0] else "",
-                row['Links'].values[0],False,False,value_check,dash.no_update,dash.no_update,viewport,[marker]
+                row['Links'].values[0],False,False,value_check,dash.no_update,dash.no_update,viewport,[marker],dash.no_update,dash.no_update,dash.no_update
             )
       
         return (False, dash.no_update,"", "","","",0,0,0,0,0,0,"","","","","","","","","","","","",
-                False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
+                False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
     
     elif triggered_id == 'update.n_clicks':   
-        return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (True,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
+        return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (True,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
 
     elif triggered_id =='confirm-yes.n_clicks' :
         try:
@@ -2793,7 +2788,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                     stored_videoid,            # keep current selection
                     *([dash.no_update] * 21),  # no other fields change
                     False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update                     # disable Confirm button
-                )
+                ,dash.no_update,dash.no_update,dash.no_update)
             
             center= cities[cities['City Name'] == city_val]['CityCenter'].iloc[0]
             lat, lon =map(float, center.split(",")) 
@@ -2827,9 +2822,16 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 ])
             ])
             
+            sheetid_edit = '1aIEe5GLAY-MVfGPj8BVjaiZoJ1z1lWwfXUTBswT576U'
+            sheetrange_edit = 'All_Cities!A1:Y500000'
+            df1 = city_load_data(sheetid_edit, sheetrange_edit)
+            cut_sheet_id = '1R-qzDHwVB6f27sGYQvpQTZIoDQbzla59j5jM0rfIm3M'
+            cut_range = 'Cuts_DB!A1:Q500000'
+            df2 = city_load_data(cut_sheet_id,cut_range)
             checkbox_ed =[] 
             return (True,result_window_update,"", "","","",0,0,0,0,0,0,"","","",
-                    "","","","","","","","","",False,False,checkbox_ed,dash.no_update,dash.no_update,map_center_city,[])      
+                    "","","","","","","","","",False,False,checkbox_ed,
+            dash.no_update,dash.no_update,map_center_city,[],"",df1.to_dict("records"),df2.to_dict("records"))      
         except ValueError as e:
             # If any validation fails, catch and show the error message
             error_message = html.Div(
@@ -2838,11 +2840,12 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                     html.P(str(e), style={"color": "black"})
                 ]
             )
-            return(True, error_message,stored_videoid) + (dash.no_update,) * 21 + (False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
+            
+            return(True, error_message,stored_videoid) + (dash.no_update,) * 21 + (False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,)
     
     elif triggered_id == 'delete.n_clicks':
         if stored_videoid:
-            return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (False,True,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
+            return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (False,True,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,)
         else:
             raise ValueError("No  selected to remove!")
         
@@ -2897,17 +2900,26 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                     error_window_update,       # show our new error
                     stored_videoid,            # keep current selection
                     *([dash.no_update] * 21),  # no other fields change
-                    False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update                     # disable Confirm button
+                    False,False,dash.no_update,dash.no_update,dash.no_update,
+                    dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,                     # disable Confirm button
                 )
             result_removal = f"{video_ver} has successfully removed !"
+            sheetid_edit = '1aIEe5GLAY-MVfGPj8BVjaiZoJ1z1lWwfXUTBswT576U'
+            sheetrange_edit = 'All_Cities!A1:Y50000'
+            df1 = city_load_data(sheetid_edit, sheetrange_edit)
+            cut_sheet_id = '1R-qzDHwVB6f27sGYQvpQTZIoDQbzla59j5jM0rfIm3M'
+            cut_range = 'Cuts_DB!A1:Q500000'
+            df2 = city_load_data(cut_sheet_id,cut_range)                            
             return (True,result_removal,"", "","","",0,0,0,0,0,0,"","","","","","","","","","","","",
-        False,False,dash.no_update,dash.no_update,dash.no_update,map_center_city,[])        
+        False,False,dash.no_update,dash.no_update,dash.no_update,map_center_city,[],"",df1.to_dict("records"),df2.to_dict("records"))        
         else:
             result_removal = "Incorrect Password, please try again!"
-            return (True,result_removal,stored_videoid) + (dash.no_update,) * 21 + (False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)        
+            return (True,result_removal,stored_videoid) + (dash.no_update,) * 21 + (False,False,dash.no_update,dash.no_update,dash.no_update,
+            dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)        
 
     # No videoid selected, just update options
-    return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
+    return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (False,False,dash.no_update,dash.no_update,dash.no_update,
+    dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
 
 
 

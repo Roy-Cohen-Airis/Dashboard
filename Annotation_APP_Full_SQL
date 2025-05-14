@@ -2910,32 +2910,33 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 df2 = city_load_data("select * from geo_cut")
                 
                 df3 = df2[df2['Cut_ID'].str.contains(video_cut)].copy()
-                print(df3)
-                cut_v = df3[df3['Ignored'] == 'true']['Cut_ID'].iloc[-1]
-                print(cut_v)
-                conn = get_db_connection()
-                cur = conn.cursor()
+                if df3.shape[0] >= 2:
+                    
+                    cut_v = df3[df3['Ignored'] == 'true']['Cut_ID'].iloc[-1]
 
-                cur.execute(
-                    '''
-                    UPDATE geo_cut
-                        SET "Ignored" = FALSE
-                    WHERE "Cut_ID" = %s
-                    ''',
-                    (cut_v,)  # note the comma to make it a tuple
-                )
+                    conn = get_db_connection()
+                    cur = conn.cursor()
 
-                cur.execute(
-                    '''
-                    UPDATE geo_cut
-                        SET "Validated_By" = %s
-                    WHERE "Cut_ID" =  %s
-                    ''',
-                    (analyst_edit, cut_v)
-                )
-                conn.commit()
-                cur.close()
-                conn.close()
+                    cur.execute(
+                        '''
+                        UPDATE geo_cut
+                            SET "Ignored" = FALSE
+                        WHERE "Cut_ID" = %s
+                        ''',
+                        (cut_v,)  # note the comma to make it a tuple
+                    )
+
+                    cur.execute(
+                        '''
+                        UPDATE geo_cut
+                            SET "Validated_By" = %s
+                        WHERE "Cut_ID" =  %s
+                        ''',
+                        (analyst_edit, cut_v)
+                    )
+                    conn.commit()
+                    cur.close()
+                    conn.close()
                 
                 result_removal = f"{video_ver} has successfully removed !"
 

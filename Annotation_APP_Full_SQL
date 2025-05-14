@@ -2258,7 +2258,7 @@ def load_versions(cut,df,selected_vid):
         if cut:
             cuts_df = v_df[v_df['Cut_ID'].str.contains(cut)].copy()
             cuts_df['version'] = cuts_df['Cut_ID'].str.extract(r'_(v\d+)$')[0]
-            version_options = cuts_df['version'].unique()
+            version_options = sorted(cuts_df['version'].unique(), key=lambda x: int(x[1:]))  # remove 'v' and sort by int
 
             ver_val = ""
         else:
@@ -2420,7 +2420,8 @@ State('input-minutes_end_edit','value'),
 State('input-seconds_end_edit','value'), 
 State("og_dur_ed","value"),
 State('og_size_ed','value'),
-State("latest_cut",   "data")   
+State("latest_cut",   "data"),
+State("cut_version","options"),  
 ],
  prevent_initial_call='initial_duplicate'
                
@@ -2428,19 +2429,21 @@ State("latest_cut",   "data")
 def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, coord_edit, tod_edit, weather_edit, vq_edit, tilt_edit, distance_edit,
               occlusion_edit, terrain_edit, logos_edit, distortions_edit, analyst_edit, comments_edit, update,confirm_yes,confirm_no,
               delete,delete_btn, check_btn,duration_edit, defaults_edit,stored_videoid,latest_df,update_confirmation,delete_password,checkbox_ed,
-              hours_st_edit, minute_st_edit, sec_st_edit,hours_end_edit, min_end_edit, sec_end_edit,og_dur_val,sized,latest_cut):
+              hours_st_edit, minute_st_edit, sec_st_edit,hours_end_edit, min_end_edit, sec_end_edit,og_dur_val,sized,latest_cut,ver_ops):
     ctx = dash.callback_context
     triggered_id = ctx.triggered[0]['prop_id'] if ctx.triggered else None
     df_city_edit = pd.DataFrame(latest_df)
+    cut_db_ed = pd.DataFrame(latest_cut)
     # Define fallback/default output with the right length (25 in your case)
-    
+
     if video_version:
         video_ver = f"{video_cut}_{video_version}"
-        city_val = df_city_edit[df_city_edit['Cut_ID'] == video_ver]['City'].values[0]
+        city_val = df_city_edit[df_city_edit['Cut_ID'] == video_ver]['City'].values[0]   
     else:
         video_ver = ""
         city_val = ""
     print(video_ver)
+
     
     if not video_version :
         # Reset all fields to defaults
@@ -2593,15 +2596,33 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
         return (False, dash.no_update,"", "","","",0,0,0,0,0,0,"","","","","","","","","","","","",
                 False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
    
-    elif triggered_id == 'update.n_clicks':   
-        return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (True,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
-
+    elif triggered_id == 'update.n_clicks':
+        last_ver = ver_ops[-1]
+        print(last_ver,video_version)
+        try:
+            if video_version  == last_ver:
+                return (False, dash.no_update,stored_videoid) + (dash.no_update,) * 21 + (True,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update)
+            else:
+                raise ValueError("Make sure you edit the latest version!")  
+        except ValueError as e:              
+            error_message = html.Div(
+                [
+                    html.H5("⚠️ Validation Error", style={"color": "red"}),
+                    html.P(str(e), style={"color": "black"})
+                ]
+            )
+            return(True, error_message,stored_videoid) + (dash.no_update,) * 21 + (False,False,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,dash.no_update,)
+    
+    
     elif triggered_id =='confirm-yes.n_clicks' :
         try:
             general_validations_update = general_validations (analyst_edit,city_name_edit,distance_edit,occlusion_edit,
             terrain_edit,logos_edit,duration_edit, tod_edit,weather_edit,vq_edit,tilt_edit)
-            
-            valid_url_update = is_valid_url(linkedit)                
+            if linkedit != df_city_edit[df_city_edit['Cut_ID'] == video_ver]["Links"].values[0]:
+                valid_url_update = is_valid_url(linkedit)   
+            else:
+                valid_url_update = linkedit     
+                    
             valid_coordinates_update = valid_coords(coord_edit)
             valid_duration_update = valid_dur(duration_edit)
 
@@ -2712,9 +2733,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
             occlusion_edit,distortions_edit,logos_edit,comments_edit,formatted_datetime]  
 
             
-            try:
-                df_city_edit = city_load_data("SELECT * FROM geo")
-                
+            try:              
                 
                 append_row_to_sql(values_update, table_name = "geo")
                 # --- insert the new version into geo_cut ---
@@ -2725,7 +2744,9 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 og_dured = df_city_edit[df_city_edit['Cut_ID'] == video_ver]['Original Duration'].values[0]
                 if not og_dured and not og_dur_val:
                     raise ValueError("Please insert original video duration")
+                
 
+                
                 if not og_dured and og_dur_val:
                     og_dured = og_dur_val
                 # Parse all the components as ints

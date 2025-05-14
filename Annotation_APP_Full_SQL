@@ -2737,7 +2737,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
                 
                 append_row_to_sql(values_update, table_name = "geo")
                 # --- insert the new version into geo_cut ---
-                cut_db_ed = city_load_data("SELECT * FROM geo_cut")
+
                 latest_cut_index = int(cut_db_ed['Index'].iloc[-1]) + 1
 
                 latest_cut_index = int(cut_db_ed['Index'].iloc[-1]) + 1

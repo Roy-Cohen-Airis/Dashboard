@@ -671,7 +671,7 @@ def insert_tab_layout():
                     'comments':""
                 }),
                 dcc.Store('links_table_store',data=None),
-
+                dcc.Store('poly_store',data=None),
 
                     html.H1("Geo Annotation Form", style=heading_style),
                     html.Hr(),
@@ -979,8 +979,29 @@ def insert_tab_layout():
 
         
 
+@app.callback(
+    Output('poly_store','data'),
+    Input("cities","value"),
+)
 
+def poly_extractor(city_val):
+    if not city_val:
+        return []
+    else:
+        polygodid = cities[cities['city_name'] == city_val]['polygonid'].values[0]
+        request = drive_service.files().get_media(fileId=polygodid)
+        polygon_bytes = request.execute()
 
+        try:
+            if isinstance(polygon_bytes, bytes):
+                polygon_data = json.loads(polygon_bytes.decode('utf-8'))
+            else:
+                polygon_data = json.loads(polygon_bytes)
+        except Exception:
+            polygon_data = []
+        poly_coords = [tuple(coord) for coord in polygon_data]
+        return poly_coords
+    
 @app.callback(
     Output('output-duration', 'value'),
     [
@@ -1031,9 +1052,10 @@ def calculate_duration(start_hours, start_minutes, start_seconds,
     Output("link_title","disabled"),
     Output("og_size","value"),
 
+
     ],
     [
-        Input('link_url','value')
+        Input('link_url','value'),
     ]
 )
 
@@ -1046,6 +1068,7 @@ def check_dur(link):
         valid_url = is_valid_url(link)
         if not valid_url:
             return 'NA', "Invalid Link", "", True,""
+
 
         # Now try extracting
         ydl_opts = {}
@@ -1105,6 +1128,7 @@ def check_dur(link):
         Output('picked_video_insert','url'),
         Output('link_url_error', 'children'),
         Output('coords_error', 'children'),
+   
           
 
 ],
@@ -1150,6 +1174,7 @@ def check_dur(link):
     State('og_duration', 'value'),
     State("link_title","value"),
     State("og_size","value"),
+    State('poly_store','data')
 
  
 ]
@@ -1159,7 +1184,7 @@ def check_dur(link):
 def validations(insertbtn, city_name,city_options,country_name, linkurl, coords_input,sources,hourst,minst,secst,
                 hourend,minend,secend,tod,weather,vq,tilt,distancebuild,occlusion,terrain,logos,distortions,
                 analyst,comments,save_later_btn,selected_link,place_on_map,
-                defaults,dur_input,links_table,checkbox,og_dur,title_vid,og_size_val):
+                defaults,dur_input,links_table,checkbox,og_dur,title_vid,og_size_val,poly_tupple):
     ctx = dash.callback_context
     triggered_id = ctx.triggered[0]['prop_id'] if ctx.triggered else None
     
@@ -1258,7 +1283,11 @@ def validations(insertbtn, city_name,city_options,country_name, linkurl, coords_
             valid_url = is_valid_url(linkurl)                
             valid_coordinates = valid_coords(coords_input)
 
+            lat, lon = map(float, valid_coordinates.split(","))    
 
+            if not is_inside_any(lat, lon, poly_tupple): 
+                raise ValueError ("Make sure you're coordinates are in the polygon!") 
+            
             df_all = city_load_data("SELECT * FROM geo")
             cut_db = city_load_data("SELECT * FROM geo_cut")
             
@@ -1333,6 +1362,7 @@ def validations(insertbtn, city_name,city_options,country_name, linkurl, coords_
             
             if end_time_check > og_dur_check:
                 raise ValueError ("Annotation time exceeding original video duration!")
+
 
             time_d=(datetime.datetime.now())
             formatted_datetime = time_d.strftime("%Y-%m-%d %H:%M:%S")    
@@ -1529,22 +1559,9 @@ def validations(insertbtn, city_name,city_options,country_name, linkurl, coords_
             if not validated_coor or not city_name:
                 raise ValueError('Please insert both coordinates & city name!')
             
-            polygodid = cities[cities['city_name'] == city_name]['PolygonID'].values[0]
-            request = drive_service.files().get_media(fileId=polygodid)
-            polygon_bytes = request.execute()
-
-            try:
-                if isinstance(polygon_bytes, bytes):
-                    polygon_data = json.loads(polygon_bytes.decode('utf-8'))
-                else:
-                    polygon_data = json.loads(polygon_bytes)
-            except Exception:
-                polygon_data = []
-            poly_coords = [tuple(coord) for coord in polygon_data]
-
             lat, lon = map(float, validated_coor.split(","))    
 
-            if is_inside_any(lat, lon, poly_coords):
+            if is_inside_any(lat, lon, poly_tupple):
                 validation_msg = html.Div(
                     [
                         html.H5("✅ Success", style={"color": "green"}),
@@ -2502,7 +2519,7 @@ def edit_mode(city_name_edit, video_cut, video_version, sourceedit, linkedit, co
             if not coord_edit or not city_name_edit:
                 raise ValueError('Please insert both coordinates & city name!')
             
-            polygodid = cities[cities['city_name'] == city_name_edit]['PolygonID'].values[0]
+            polygodid = cities[cities['city_name'] == city_name_edit]['polygonid'].values[0]
             request = drive_service.files().get_media(fileId=polygodid)
             polygon_bytes = request.execute()
 

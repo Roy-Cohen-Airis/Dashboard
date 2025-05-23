@@ -784,9 +784,10 @@ def insert_tab_layout():
                                 children=[
                                     dl.TileLayer(),
                                     dl.LayerGroup(id="map-layer", children=[]),
+                                    dl.LayerGroup(id="polygon-layer", children=[]),
                                 ],
                                 center=(41.9028, 12.4964),  
-                                zoom=10,
+                                zoom=6,
                                 style={"width": "100%", "height": "400px", "margin": "6px","border": "2px solid black"}
                             ),
                         ], width=2),
@@ -1032,12 +1033,14 @@ def analyze_image(image_contents, city_name,upload_style):
 
 @app.callback(
     Output('poly_store','data'),
+    Output('polygon-layer', 'children'),
+
     Input("cities","value"),
 )
 
 def poly_extractor(city_val):
     if not city_val:
-        return []
+        return [],[]
     else:
         polygodid = cities[cities['City_Name'] == city_val]['PolygonID'].values[0]
         request = drive_service.files().get_media(fileId=polygodid)
@@ -1051,7 +1054,15 @@ def poly_extractor(city_val):
         except Exception:
             polygon_data = []
         poly_coords = [tuple(coord) for coord in polygon_data]
-        return poly_coords
+        poly = Polygon(poly_coords)
+        layer =  dl.Polygon(
+                        positions=list(poly.exterior.coords),
+                        color="blue",
+                        fillColor="cyan",
+                        fillOpacity=0.6,
+                    )
+        polygon_layer = dl.LayerGroup(children=layer)
+        return poly_coords,polygon_layer
     
 @app.callback(
     Output('output-duration', 'value'),
@@ -1734,16 +1745,7 @@ df_city_edit = df_city_edit.dropna(subset=['timestamp'])
 # 3. Get the earliest timestamp
 first_timestamp = df_city_edit['timestamp'].min()
 
-# Create a function to assign relative quarters
-def assign_relative_quarter(ts):
-    diff = ts - first_timestamp
-    months = diff.days // 30  # Approximate months
-    quarter = (months // 3) + 1
-    return quarter
-df_city_edit['Quarter'] = df_city_edit['timestamp'].apply(assign_relative_quarter)
 
-# Example: sum by quarter
-quarters = df_city_edit['Quarter'].nunique()
 timeframes = ["", "Year", "1/2 Year", "3 Months", "Month", "Week", "Day", ""]
 
 def edit_tab_layout():

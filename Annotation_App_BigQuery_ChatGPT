@@ -919,6 +919,16 @@ def insert_tab_layout():
                                 id="confirmation-modal",
                                 is_open=False,
                             ),
+                            dbc.Modal(
+                                [
+                                    dbc.ModalHeader("ChatGPT Results"),
+                                    dbc.ModalBody(
+                                        html.Div(id="gpt_res", style=modal_style)
+                                    ),
+                                ],
+                                id="gpt_modal",
+                                is_open=False,
+                            ),
                         ], width=2),
                     ])
                 ]
@@ -928,9 +938,13 @@ def insert_tab_layout():
 @app.callback(
     Output('upload-image', 'style'),
     Output('output-image-upload', 'style'),
+    Output('output-image-upload', 'children'),
+    Output('coordinates_input', 'value',allow_duplicate=True),
     Input("insert_type", "value"),
     State('upload-image', 'style'),
     State('output-image-upload', 'style'),
+         prevent_initial_call='initial_duplicate'
+
 )
 def toggle_visibility(insert_input, upload_state, image_state):
     # Ensure styles are initialized as dictionaries
@@ -944,21 +958,23 @@ def toggle_visibility(insert_input, upload_state, image_state):
             upload_state['display'] = 'block'
             image_state['display'] = 'block'
 
-            return upload_state, image_state
+            return upload_state, image_state,html.Div(f""),""
         else:
             upload_state['display'] = 'none'
             image_state['display'] = 'none'
-            return upload_state, image_state
+            return upload_state, image_state,html.Div(f""),""
     else:
         upload_state['display'] = 'none'
-        return upload_state, dash.no_update
+        return upload_state, dash.no_update,html.Div(f""),""
     
             
             
 @app.callback(
-    Output('output-image-upload', 'children'),
+    Output('output-image-upload', 'children',allow_duplicate=True),
     Input('upload-image', 'contents'),
-    State('upload-image', 'filename')
+    State('upload-image', 'filename'),
+     prevent_initial_call='initial_duplicate'
+
 )
 def update_output(content, filename):
     if content is not None:
@@ -970,21 +986,24 @@ def update_output(content, filename):
 
 @app.callback(
     Output('coordinates_input', 'value',allow_duplicate=True),
+    Output('gpt_modal','is_open'),
+    Output('gpt_res','children'),
     Input('upload-image', 'contents'),
     State('cities', 'value'),
     State('upload-image', 'style'),
+    
  prevent_initial_call='initial_duplicate'
 )
 def analyze_image(image_contents, city_name,upload_style):
     if upload_style.get('display') == 'block':
         if not image_contents or not city_name:
-            return "Please provide both an image and a city name."
+            return "Please provide both an image and a city name.",False,""
         else:
             # Extract base64 from content
             try:
                 _, encoded = image_contents.split(",", 1)
             except Exception:
-                return "Could not read image."
+                return "Could not read image.",False,""
 
             prompt = (
                 f"Please analyze this image and provide the GPS coordinates "
@@ -1022,18 +1041,21 @@ def analyze_image(image_contents, city_name,upload_style):
                 match = re.search(r'(-?\d+\.\d+),\s*(-?\d+\.\d+)', content)
                 if match:
                     coords = f"{match.group(1)}, {match.group(2)}"
-                    return coords
+                    gpt_results = html.Div(f"Raw model response: {content}")
+                    return coords,True,gpt_results
                 else:
-                    return "Could not extract coordinates."
+                    gpt_results = html.Div(f"Raw model response: {content}")
+                    return "Could not extract coordinates.",True,gpt_results
 
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"Error: {str(e)}",True,f"Failed process file!"
     else:
-        return None
+        return None,False,""
 
 @app.callback(
     Output('poly_store','data'),
     Output('polygon-layer', 'children'),
+    
 
     Input("cities","value"),
 )
